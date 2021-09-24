@@ -52,7 +52,7 @@ func runListen(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []s
 		fmt.Printf("TEXT:%s\n", sanitizedText)
 		fmt.Println("--")
 	}).WithStatusCallback(func(m sds.StatusMessage) {
-		fmt.Println(m)
+		fmt.Printf("STATUS\nISSI:%s\nSTATUS:%4x\n--\n", m.Source, m.Value)
 	}).WithResponseCallback(func(responses []string) error {
 		for _, response := range responses {
 			_, err := radio.AT(ctx, response)
