@@ -17,6 +17,8 @@ var rootFlags = struct {
 	commandTimeout time.Duration
 }{}
 
+const defaultCommandTimeout = 5 * time.Second
+
 var rootCmd = &cobra.Command{
 	Use:   "tetra-cli",
 	Short: "Control a TETRA radio terminal through its PEI.",
@@ -24,7 +26,7 @@ var rootCmd = &cobra.Command{
 
 func init() {
 	rootCmd.PersistentFlags().StringVar(&rootFlags.device, "device", "/dev/ttyS0", "serial communication device")
-	rootCmd.PersistentFlags().DurationVar(&rootFlags.commandTimeout, "commandTimeout", 500*time.Millisecond, "timeout for commands")
+	rootCmd.PersistentFlags().DurationVar(&rootFlags.commandTimeout, "commandTimeout", defaultCommandTimeout, "timeout for commands")
 }
 
 func Execute() {
