@@ -47,7 +47,6 @@ func runStatus(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []s
 	}
 
 	request := sds.SendMessage(destISSI, status.(sds.Encoder))
-
 	_, err = radio.AT(ctx, request)
 	if err != nil {
 		fatalf("cannot send status message: %v", err)

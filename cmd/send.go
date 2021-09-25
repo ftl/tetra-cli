@@ -40,9 +40,18 @@ func runSend(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 		fatalf("cannot initialize radio: %v", err)
 	}
 
-	sdsTransfer := sds.NewTextMessageTransfer(0x01, messageText)
-	request := sds.SendMessage(destISSI, sdsTransfer)
+	maxPDUBits, err := sds.RequestMaxMessagePDUBits(ctx, radio.AT)
+	if err != nil {
+		fatalf("cannot find out how long an SDS text message may be: %v", err)
+	}
 
+	sdsTransfer := sds.NewTextMessageTransfer(0x01, messageText)
+	_, pduBits := sdsTransfer.Encode([]byte{}, 0)
+	if pduBits > maxPDUBits {
+		fatalf("the message is too long: expected max %d bits, but got %d", maxPDUBits, pduBits)
+	}
+
+	request := sds.SendMessage(destISSI, sdsTransfer)
 	_, err = radio.AT(ctx, request)
 	if err != nil {
 		fatalf("cannot send SDS text message: %v", err)
