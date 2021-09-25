@@ -17,6 +17,7 @@ var sendFlags = struct {
 	ackReceive       bool
 	ackConsume       bool
 	simple           bool
+	encoding         string
 }{}
 
 var sendCmd = &cobra.Command{
@@ -31,6 +32,7 @@ func init() {
 	sendCmd.Flags().BoolVar(&sendFlags.ackReceive, "ack-receive", false, "request acknowledgment for receiving the message")
 	sendCmd.Flags().BoolVar(&sendFlags.ackConsume, "ack-consume", false, "request acknowledgment for consuming the message")
 	sendCmd.Flags().BoolVar(&sendFlags.simple, "simple", false, "use the simple text messaging protocol (no delivery reports possible)")
+	sendCmd.Flags().StringVar(&sendFlags.encoding, "encoding", "ISO8859-1", "the text encoding")
 
 	rootCmd.AddCommand(sendCmd)
 }
@@ -45,7 +47,10 @@ func runSend(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 		fatalf("the message reference must be 1-255, but got %d", sendFlags.messageReference)
 	}
 	messageReference := sds.MessageReference(sendFlags.messageReference)
-	encoding := sds.ISO8859_1
+	encoding, ok := sds.EncodingByName[strings.ToUpper(strings.TrimSpace(sendFlags.encoding))]
+	if !ok {
+		fatalf("unexpected encoding: %s", sendFlags.encoding)
+	}
 	messageText := strings.Join(args[1:], " ")
 	deliveryReport := sds.NoReportRequested
 	if sendFlags.ackReceive {
