@@ -16,6 +16,7 @@ var sendFlags = struct {
 	immediate        bool
 	ackReceive       bool
 	ackConsume       bool
+	simple           bool
 }{}
 
 var sendCmd = &cobra.Command{
@@ -29,6 +30,7 @@ func init() {
 	sendCmd.Flags().BoolVar(&sendFlags.immediate, "immediate", false, "immediately show the message at the receiver")
 	sendCmd.Flags().BoolVar(&sendFlags.ackReceive, "ack-receive", false, "request acknowledgment for receiving the message")
 	sendCmd.Flags().BoolVar(&sendFlags.ackConsume, "ack-consume", false, "request acknowledgment for consuming the message")
+	sendCmd.Flags().BoolVar(&sendFlags.simple, "simple", false, "use the simple text messaging protocol (no delivery reports possible)")
 
 	rootCmd.AddCommand(sendCmd)
 }
@@ -43,6 +45,7 @@ func runSend(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 		fatalf("the message reference must be 1-255, but got %d", sendFlags.messageReference)
 	}
 	messageReference := sds.MessageReference(sendFlags.messageReference)
+	encoding := sds.ISO8859_1
 	messageText := strings.Join(args[1:], " ")
 	deliveryReport := sds.NoReportRequested
 	if sendFlags.ackReceive {
@@ -103,13 +106,20 @@ func runSend(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 		fatalf("cannot find out how long an SDS text message may be: %v", err)
 	}
 
-	sdsTransfer := sds.NewTextMessageTransfer(messageReference, sendFlags.immediate, deliveryReport, messageText)
-	_, pduBits := sdsTransfer.Encode([]byte{}, 0)
+	var pdu sds.Encoder
+	var sdsTransfer sds.SDSTransfer
+	if sendFlags.simple {
+		pdu = sds.NewSimpleTextMessage(sendFlags.immediate, encoding, messageText)
+	} else {
+		sdsTransfer = sds.NewTextMessageTransfer(messageReference, sendFlags.immediate, deliveryReport, encoding, messageText)
+		pdu = sdsTransfer
+	}
+	_, pduBits := pdu.Encode([]byte{}, 0)
 	if pduBits > maxPDUBits {
 		fatalf("the message is too long: expected max %d bits, but got %d", maxPDUBits, pduBits)
 	}
 
-	request := sds.SendMessage(destISSI, sdsTransfer)
+	request := sds.SendMessage(destISSI, pdu)
 	_, err = radio.AT(ctx, request)
 	if err != nil {
 		fatalf("cannot send SDS text message: %v", err)
