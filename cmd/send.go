@@ -11,6 +11,7 @@ import (
 )
 
 var sendFlags = struct {
+	immediate bool
 }{}
 
 var sendCmd = &cobra.Command{
@@ -20,6 +21,8 @@ var sendCmd = &cobra.Command{
 }
 
 func init() {
+	sendCmd.Flags().BoolVar(&sendFlags.immediate, "immediate", false, "immediately show the message at the receiver")
+
 	rootCmd.AddCommand(sendCmd)
 }
 
@@ -45,7 +48,9 @@ func runSend(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 		fatalf("cannot find out how long an SDS text message may be: %v", err)
 	}
 
-	sdsTransfer := sds.NewTextMessageTransfer(0x01, messageText)
+	var sdsTransfer sds.SDSTransfer
+
+	sdsTransfer = sds.NewTextMessageTransfer(0x01, sendFlags.immediate, messageText)
 	_, pduBits := sdsTransfer.Encode([]byte{}, 0)
 	if pduBits > maxPDUBits {
 		fatalf("the message is too long: expected max %d bits, but got %d", maxPDUBits, pduBits)
