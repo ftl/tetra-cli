@@ -13,8 +13,9 @@ import (
 )
 
 var rootFlags = struct {
-	device         string
-	commandTimeout time.Duration
+	device           string
+	commandTimeout   time.Duration
+	tracePEIFilename string
 }{}
 
 const defaultCommandTimeout = 5 * time.Second
@@ -27,6 +28,8 @@ var rootCmd = &cobra.Command{
 func init() {
 	rootCmd.PersistentFlags().StringVar(&rootFlags.device, "device", "/dev/ttyS0", "serial communication device")
 	rootCmd.PersistentFlags().DurationVar(&rootFlags.commandTimeout, "commandTimeout", defaultCommandTimeout, "timeout for commands")
+	rootCmd.PersistentFlags().StringVar(&rootFlags.tracePEIFilename, "trace-pei", "", "filename for tracing the PEI communication")
+	rootCmd.PersistentFlags().MarkHidden("trace-pei")
 }
 
 func Execute() {
@@ -71,10 +74,24 @@ func runWithRadio(run func(context.Context, *com.COM, *cobra.Command, []string))
 		}
 		defer device.Close()
 
+		var tracePEIFile *os.File
+		if rootFlags.tracePEIFilename != "" {
+			tracePEIFile, err = os.OpenFile(rootFlags.tracePEIFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				fatalf("cannot access PEI trace file: %v", err)
+			}
+			defer tracePEIFile.Close()
+		}
+
 		rootCtx, interrupted := signal.NotifyContext(context.Background(), os.Interrupt)
 		defer interrupted()
 
-		radio := com.New(device)
+		var radio *com.COM
+		if tracePEIFile != nil {
+			radio = com.NewWithTrace(device, tracePEIFile)
+		} else {
+			radio = com.New(device)
+		}
 		err = radio.ClearSyntaxErrors(rootCtx)
 		if err != nil {
 			fatalf("cannot connect to radio: %v", err)
