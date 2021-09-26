@@ -106,7 +106,7 @@ func runSend(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 	}
 	radio.AddIndication("+CTSDSR: 12,", 1, decodeMessagePart)
 
-	maxPDUBits, err := sds.RequestMaxMessagePDUBits(ctx, radio.AT)
+	maxPDUBits, err := sds.RequestMaxMessagePDUBits(ctx, sds.RequesterFunc(radio.AT))
 	if err != nil {
 		fatalf("cannot find out how long an SDS text message may be: %v", err)
 	}
