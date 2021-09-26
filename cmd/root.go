@@ -98,5 +98,11 @@ func runWithRadio(run func(context.Context, *com.COM, *cobra.Command, []string))
 		}
 
 		run(rootCtx, radio, cmd, args)
+
+		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), rootFlags.commandTimeout)
+		defer cancelShutdown()
+		radio.AT(shutdownCtx, "ATZ")
+		radio.Close()
+		radio.WaitUntilClosed(shutdownCtx)
 	}
 }
