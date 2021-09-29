@@ -65,6 +65,9 @@ func runSend(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 		"AT+CSCS=8859-1",
 		sds.SwitchToSDSTL,
 	)
+	if err != nil {
+		fatalf("cannot initialize radio: %v", err)
+	}
 
 	messageReceived := make(chan struct{})
 	messageConsumed := make(chan struct{})
@@ -106,7 +109,7 @@ func runSend(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 	}
 	radio.AddIndication("+CTSDSR: 12,", 1, decodeMessagePart)
 
-	maxPDUBits, err := sds.RequestMaxMessagePDUBits(ctx, sds.RequesterFunc(radio.AT))
+	maxPDUBits, err := sds.RequestMaxMessagePDUBits(ctx, radio)
 	if err != nil {
 		fatalf("cannot find out how long an SDS text message may be: %v", err)
 	}
