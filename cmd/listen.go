@@ -27,6 +27,7 @@ func runListen(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []s
 	err := radio.ATs(ctx,
 		"ATZ",
 		"AT+CSCS=8859-1",
+		"AT+CTSP=2,0,0",   // call signaling
 		"AT+CTSP=2,2,20",  // status
 		"AT+CTSP=1,3,2",   // simple text messaging
 		"AT+CTSP=1,3,9",   // simple immediate text messaging
