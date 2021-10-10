@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/ftl/tetra-pei/com"
 	"github.com/ftl/tetra-pei/sds"
@@ -78,8 +79,20 @@ func runListen(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []s
 
 	radio.AddIndication("+CTSDSR: 12,", 1, decodeMessagePart)
 	radio.AddIndication("+CTSDSR: 13,", 1, decodeMessagePart)
-	radio.AddIndication("+ENCR", 0, func(lines []string) {
-		fmt.Printf("VOICE\n%s\n--\n", lines[0])
+	radio.AddIndication("+CTXG:", 0, func(lines []string) {
+		parts := strings.Split(lines[0][6:], ",")
+		switch len(parts) {
+		case 4:
+			fmt.Print("VOICE TX\n--\n")
+		case 6:
+			fmt.Printf("VOICE RX\nITSI: %s\n--\n", parts[5])
+		}
+	})
+	radio.AddIndication("+CDTXC:", 0, func(lines []string) {
+		fmt.Printf("TALKGROUP IDLE\n--\n")
+	})
+	radio.AddIndication("+CTCR:", 0, func(lines []string) {
+		fmt.Printf("TALKGROUP INACTIVE\n--\n")
 	})
 
 	<-ctx.Done()
