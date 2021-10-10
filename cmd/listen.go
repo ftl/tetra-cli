@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"strconv"
 	"strings"
 
 	"github.com/ftl/tetra-pei/com"
+	"github.com/ftl/tetra-pei/ctrl"
 	"github.com/ftl/tetra-pei/sds"
 	"github.com/spf13/cobra"
 )
@@ -93,6 +95,13 @@ func runListen(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []s
 	})
 	radio.AddIndication("+CTCR:", 0, func(lines []string) {
 		fmt.Printf("TALKGROUP INACTIVE\n--\n")
+	})
+	radio.AddIndication("+CTOM: ", 0, func(lines []string) {
+		aiMode, err := strconv.Atoi(lines[0][7:])
+		if err != nil {
+			return
+		}
+		fmt.Printf("AI MODE: %s\n--\n", ctrl.AIMode(aiMode).String())
 	})
 
 	<-ctx.Done()
