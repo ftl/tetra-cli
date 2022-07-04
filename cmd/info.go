@@ -3,26 +3,24 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"log"
+	"strings"
 
 	"github.com/ftl/tetra-pei/com"
-	"github.com/ftl/tetra-pei/ctrl"
 	"github.com/spf13/cobra"
 )
 
-var infoFlags = struct {
-}{}
-
-var getBatteryChargeCmd = &cobra.Command{
-	Use:   "bat",
-	Short: "Read the current battery charge level",
-	Run:   runCommandWithRadio(runGetBatteryCharge),
+var infoCmd = &cobra.Command{
+	Use:   "info",
+	Short: "Read the radio device information",
+	Run:   runCommandWithRadio(runInfo),
 }
 
 func init() {
-	rootCmd.AddCommand(getBatteryChargeCmd)
+	rootCmd.AddCommand(infoCmd)
 }
 
-func runGetBatteryCharge(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
+func runInfo(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
 	err := radio.ATs(ctx,
 		"ATZ",
 	)
@@ -30,10 +28,10 @@ func runGetBatteryCharge(ctx context.Context, radio *com.COM, cmd *cobra.Command
 		fatalf("cannot initialize radio: %v", err)
 	}
 
-	batteryCharge, err := ctrl.RequestBatteryCharge(ctx, radio)
+	info, err := radio.AT(ctx, "ATI")
 	if err != nil {
-		fatal(err)
+		log.Printf("cannot read radio device information: %v", err)
+	} else {
+		fmt.Printf("%v\n", strings.Join(info, "\n"))
 	}
-
-	fmt.Printf("%d\n", batteryCharge)
 }
