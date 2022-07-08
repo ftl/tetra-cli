@@ -23,6 +23,7 @@ func init() {
 func runInfo(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
 	err := radio.ATs(ctx,
 		"ATZ",
+		"ATE0",
 	)
 	if err != nil {
 		fatalf("cannot initialize radio: %v", err)

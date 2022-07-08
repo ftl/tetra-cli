@@ -2,7 +2,9 @@ package cmd
 
 import (
 	"context"
+	"fmt"
 	"log"
+	"math/rand"
 	"strings"
 
 	"github.com/ftl/tetra-pei/com"
@@ -27,7 +29,7 @@ var sendCmd = &cobra.Command{
 }
 
 func init() {
-	sendCmd.Flags().IntVar(&sendFlags.messageReference, "message-reference", 1, "the message reference used for delivery reports")
+	sendCmd.Flags().IntVar(&sendFlags.messageReference, "message-reference", 0, "the message reference used for delivery reports")
 	sendCmd.Flags().BoolVar(&sendFlags.immediate, "immediate", false, "immediately show the message at the receiver")
 	sendCmd.Flags().BoolVar(&sendFlags.ackReceive, "ack-receive", false, "request acknowledgment for receiving the message")
 	sendCmd.Flags().BoolVar(&sendFlags.ackConsume, "ack-consume", false, "request acknowledgment for consuming the message")
@@ -43,10 +45,14 @@ func runSend(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 	}
 
 	destISSI := tetra.Identity(args[0])
+	if sendFlags.messageReference == 0 {
+		sendFlags.messageReference = (rand.Int() + 1) & 0xFF
+	}
 	if sendFlags.messageReference < 1 || sendFlags.messageReference > 255 {
 		fatalf("the message reference must be 1-255, but got %d", sendFlags.messageReference)
 	}
 	messageReference := sds.MessageReference(sendFlags.messageReference)
+
 	encoding, ok := sds.EncodingByName[strings.ToUpper(strings.TrimSpace(sendFlags.encoding))]
 	if !ok {
 		fatalf("unexpected encoding: %s", sendFlags.encoding)
@@ -62,6 +68,7 @@ func runSend(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 
 	err := radio.ATs(ctx,
 		"ATZ",
+		"ATE0",
 		"AT+CSCS=8859-1",
 		sds.SwitchToSDSTL,
 	)
@@ -69,9 +76,37 @@ func runSend(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 		fatalf("cannot initialize radio: %v", err)
 	}
 
+	maxPDUBits, err := sds.RequestMaxMessagePDUBits(ctx, radio)
+	if err != nil {
+		fatalf("cannot find out how long an SDS text message may be: %v", err)
+	}
+	maxPDUBits = 668 // this is the value that seems to work in practice. grateful for any hint how this is supposed to work
+
+	var pdu sds.Encoder
+	var sdsTransfer sds.SDSTransfer
+	if sendFlags.simple {
+		pdu = sds.NewSimpleTextMessage(sendFlags.immediate, encoding, messageText)
+	} else {
+		sdsTransfer = sds.NewTextMessageTransfer(messageReference, sendFlags.immediate, deliveryReport, encoding, messageText)
+		pdu = sdsTransfer
+	}
+
+	_, pduBits := pdu.Encode([]byte{}, 0)
+	if pduBits <= maxPDUBits {
+		err = sendSingleTextMessage(ctx, radio, destISSI, messageReference, pdu, sdsTransfer.ReceivedReportRequested(), sdsTransfer.ConsumedReportRequested())
+	} else {
+		err = sendConcatenatedTextMessage(ctx, radio, destISSI, messageReference, encoding, maxPDUBits, messageText)
+	}
+
+	if err != nil {
+		fatal(err)
+	}
+}
+
+func sendSingleTextMessage(ctx context.Context, radio *com.COM, destISSI tetra.Identity, messageReference sds.MessageReference, pdu sds.Encoder, waitForReceived bool, waitForConsumed bool) error {
 	messageReceived := make(chan struct{})
 	messageConsumed := make(chan struct{})
-	var decodeMessagePart = func(lines []string) {
+	radio.AddIndication("+CTSDSR: 12,", 1, func(lines []string) {
 		if len(lines) == 2 {
 			part, err := sds.ParseIncomingMessage(lines[0], lines[1])
 			if err != nil {
@@ -106,50 +141,57 @@ func runSend(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 				}
 			}
 		}
-	}
-	radio.AddIndication("+CTSDSR: 12,", 1, decodeMessagePart)
-
-	maxPDUBits, err := sds.RequestMaxMessagePDUBits(ctx, radio)
-	if err != nil {
-		fatalf("cannot find out how long an SDS text message may be: %v", err)
-	}
-
-	var pdu sds.Encoder
-	var sdsTransfer sds.SDSTransfer
-	if sendFlags.simple {
-		pdu = sds.NewSimpleTextMessage(sendFlags.immediate, encoding, messageText)
-	} else {
-		sdsTransfer = sds.NewTextMessageTransfer(messageReference, sendFlags.immediate, deliveryReport, encoding, messageText)
-		pdu = sdsTransfer
-	}
-	_, pduBits := pdu.Encode([]byte{}, 0)
-	if pduBits > maxPDUBits {
-		fatalf("the message is too long: expected max %d bits, but got %d", maxPDUBits, pduBits)
-	}
+	})
 
 	request := sds.SendMessage(destISSI, pdu)
-	_, err = radio.AT(ctx, request)
+	_, err := radio.AT(ctx, request)
 	if err != nil {
-		fatalf("cannot send SDS text message: %v", err)
+		return fmt.Errorf("cannot send SDS text message: %v", err)
 	}
 
-	if deliveryReport == sds.NoReportRequested {
-		return
-	}
-	if sdsTransfer.ReceivedReportRequested() {
+	if waitForReceived {
 		select {
 		case <-messageReceived:
 			log.Printf("message received")
 		case <-ctx.Done():
-			fatal(ctx.Err())
+			return ctx.Err()
 		}
 	}
-	if sdsTransfer.ConsumedReportRequested() {
+	if waitForConsumed {
 		select {
 		case <-messageConsumed:
 			log.Printf("message consumed")
 		case <-ctx.Done():
-			fatal(ctx.Err())
+			return ctx.Err()
 		}
 	}
+
+	return nil
+}
+
+func sendConcatenatedTextMessage(ctx context.Context, radio *com.COM, destISSI tetra.Identity, messageReference sds.MessageReference, encoding sds.TextEncoding, maxPDUBits int, messageText string) error {
+	partConfirmation := make(chan string, 1)
+	radio.AddIndication("+CMGS: 0,", 0, func(lines []string) {
+		if len(lines) != 1 {
+			return
+		}
+		partConfirmation <- lines[0]
+	})
+
+	pdus := sds.NewConcatenatedMessageTransfer(messageReference, sds.NoReportRequested, encoding, maxPDUBits, messageText)
+	for i, pdu := range pdus {
+		request := sds.SendMessage(destISSI, pdu)
+		_, err := radio.AT(ctx, request)
+		if err != nil {
+			return fmt.Errorf("cannot send SDS text message part #%d: %v", i+1, err)
+		}
+		if i < len(pdus)-1 {
+			select {
+			case <-partConfirmation:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+	}
+	return nil
 }

@@ -39,6 +39,7 @@ func runStatus(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []s
 
 	err = radio.ATs(ctx,
 		"ATZ",
+		"ATE0",
 		"AT+CTSP=2,2,20", // status
 		sds.SwitchToStatus,
 	)

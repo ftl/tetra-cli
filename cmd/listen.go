@@ -29,6 +29,7 @@ func init() {
 func runListen(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
 	err := radio.ATs(ctx,
 		"ATZ",
+		"ATE0",
 		"AT+CSCS=8859-1",
 		"AT+CTSP=2,0,0",   // call signaling
 		"AT+CTSP=2,2,20",  // status

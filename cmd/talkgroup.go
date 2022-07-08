@@ -47,6 +47,7 @@ func runSetTalkgroup(ctx context.Context, radio *com.COM, cmd *cobra.Command, ar
 
 	err = radio.ATs(ctx,
 		"ATZ",
+		"ATE0",
 		"AT+CTSP=1,1,11",
 		ctrl.SetOperatingMode(aiMode),
 	)
@@ -62,6 +63,7 @@ func runSetTalkgroup(ctx context.Context, radio *com.COM, cmd *cobra.Command, ar
 func runGetTalkgroup(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
 	err := radio.ATs(ctx,
 		"ATZ",
+		"ATE0",
 		"AT+CTSP=1,1,11",
 	)
 	if err != nil {

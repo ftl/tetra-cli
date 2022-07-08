@@ -33,6 +33,7 @@ func init() {
 func runTraceSignal(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
 	err := radio.ATs(ctx,
 		"ATZ",
+		"ATE0",
 		"AT+CSCS=8859-1",
 	)
 	if err != nil {
