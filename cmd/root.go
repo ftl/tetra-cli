@@ -60,7 +60,7 @@ func runWithRadio(run func(context.Context, *com.COM, *cobra.Command, []string))
 	return func(cmd *cobra.Command, args []string) {
 		portConfig := serial.OpenOptions{
 			PortName:              rootFlags.device,
-			BaudRate:              34800,
+			BaudRate:              38400,
 			DataBits:              8,
 			StopBits:              1,
 			ParityMode:            serial.PARITY_NONE,
