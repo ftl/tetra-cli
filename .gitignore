@@ -1,3 +1,4 @@
 tetra-cli*
 *.txt
 *.log
+.vscode
