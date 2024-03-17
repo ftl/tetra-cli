@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
+	"github.com/chmorgan/go-serial2/serial"
 	"github.com/ftl/tetra-pei/com"
-	"github.com/jacobsa/go-serial/serial"
+	"github.com/hedhyw/Go-Serial-Detector/pkg/v1/serialdet"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +28,7 @@ var rootCmd = &cobra.Command{
 }
 
 func init() {
-	rootCmd.PersistentFlags().StringVar(&rootFlags.device, "device", "/dev/ttyS0", "serial communication device")
+	rootCmd.PersistentFlags().StringVar(&rootFlags.device, "device", "", "serial communication device (leave empty for auto detection)")
 	rootCmd.PersistentFlags().DurationVar(&rootFlags.commandTimeout, "commandTimeout", defaultCommandTimeout, "timeout for commands")
 	rootCmd.PersistentFlags().StringVar(&rootFlags.tracePEIFilename, "trace-pei", "", "filename for tracing the PEI communication")
 	rootCmd.PersistentFlags().MarkHidden("trace-pei")
@@ -58,8 +60,13 @@ func runCommandWithRadio(run func(context.Context, *com.COM, *cobra.Command, []s
 
 func runWithRadio(run func(context.Context, *com.COM, *cobra.Command, []string)) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
+		portName, err := getRadioPortName()
+		if err != nil {
+			fatal(err)
+		}
+
 		portConfig := serial.OpenOptions{
-			PortName:              rootFlags.device,
+			PortName:              portName,
 			BaudRate:              38400,
 			DataBits:              8,
 			StopBits:              1,
@@ -105,4 +112,24 @@ func runWithRadio(run func(context.Context, *com.COM, *cobra.Command, []string))
 		radio.Close()
 		radio.WaitUntilClosed(shutdownCtx)
 	}
+}
+
+func getRadioPortName() (string, error) {
+	if rootFlags.device != "" && strings.ToLower(rootFlags.device) != "auto" {
+		return rootFlags.device, nil
+	}
+
+	devices, err := serialdet.List()
+	if err != nil {
+		return "", err
+	}
+
+	for _, device := range devices {
+		description := strings.ToLower(device.Description())
+		if strings.Contains(description, "tetra_pei_interface") {
+			return device.Path(), nil
+		}
+	}
+
+	return "", fmt.Errorf("no active PEI interface found, use the --device parameter to provide the serial communication device")
 }
