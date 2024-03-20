@@ -25,9 +25,16 @@ var getTalkgroupCmd = &cobra.Command{
 	Run:   runCommandWithRadio(runGetTalkgroup),
 }
 
+var getTalkgroupsCmd = &cobra.Command{
+	Use:   "talkgroups",
+	Short: "Get all talk groups for TMO and DMO as CSV list",
+	Run:   runCommandWithRadio(runGetTalkgroups),
+}
+
 func init() {
 	rootCmd.AddCommand(setTalkgroupCmd)
 	rootCmd.AddCommand(getTalkgroupCmd)
+	rootCmd.AddCommand(getTalkgroupsCmd)
 }
 
 func runSetTalkgroup(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
@@ -81,4 +88,54 @@ func runGetTalkgroup(ctx context.Context, radio *com.COM, cmd *cobra.Command, ar
 		fatalf("cannot find out the current talkgroup: %v", err)
 	}
 	fmt.Printf("GTSI: %s\n", currentTalkgroup)
+}
+
+func runGetTalkgroups(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
+	err := radio.ATs(ctx,
+		"ATZ",
+		"ATE0",
+	)
+	if err != nil {
+		fatalf("cannot initialize radio: %v", err)
+	}
+
+	lastMode, err := ctrl.RequestOperatingMode(ctx, radio)
+	if err != nil {
+		fatalf("cannot read last mode: %v", err)
+	}
+
+	if lastMode != ctrl.TMO {
+		_, err = radio.AT(ctx, ctrl.SetOperatingMode(ctrl.TMO))
+		if err != nil {
+			fatalf("cannot switch to TMO: %v", err)
+		}
+	}
+	tmoTalkgroups := make([]ctrl.TalkgroupInfo, 0, 2000)
+	tmoTalkgroups, err = ctrl.RequestTalkgroups(ctx, radio, ctrl.TalkgroupDynamic, tmoTalkgroups)
+	if err != nil {
+		fatalf("cannot read TMO talkgroups: %v", err)
+	}
+	for _, info := range tmoTalkgroups {
+		fmt.Printf("TMO;%s;%s\n", info.GTSI, info.Name)
+	}
+
+	_, err = radio.AT(ctx, ctrl.SetOperatingMode(ctrl.DMO))
+	if err != nil {
+		fatalf("cannot switch to DMO: %v", err)
+	}
+	dmoTalkgroups := make([]ctrl.TalkgroupInfo, 0, 2000)
+	dmoTalkgroups, err = ctrl.RequestTalkgroups(ctx, radio, ctrl.TalkgroupStatic, dmoTalkgroups)
+	if err != nil {
+		fatalf("cannot read DMO talkgroups: %v", err)
+	}
+	for _, info := range dmoTalkgroups {
+		fmt.Printf("DMO;%s;%s\n", info.GTSI, info.Name)
+	}
+
+	if lastMode != ctrl.DMO {
+		_, err = radio.AT(ctx, ctrl.SetOperatingMode(lastMode))
+		if err != nil {
+			fatalf("cannot switch to last mode: %v", err)
+		}
+	}
 }
