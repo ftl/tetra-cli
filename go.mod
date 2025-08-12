@@ -1,12 +1,12 @@
 module github.com/ftl/tetra-cli
 
-go 1.17
+go 1.24.3
 
 // replace github.com/ftl/tetra-pei => ../tetra-pei
 
 require (
 	github.com/chmorgan/go-serial2 v0.0.0-20190806182038-472d60f85d9b
-	github.com/ftl/tetra-pei v1.2.0
+	github.com/ftl/tetra-pei v1.3.0
 	github.com/hedhyw/Go-Serial-Detector v1.0.0-rc1
 	github.com/spf13/cobra v1.2.1
 )
