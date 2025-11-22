@@ -7,12 +7,14 @@ import (
 	"github.com/ftl/tetra-pei/com"
 	"github.com/ftl/tetra-pei/ctrl"
 	"github.com/spf13/cobra"
+
+	"github.com/ftl/tetra-cli/pkg/cli"
 )
 
 var getBatteryChargeCmd = &cobra.Command{
 	Use:   "bat",
 	Short: "Read the current battery charge level",
-	Run:   runCommandWithRadio(runGetBatteryCharge),
+	Run:   cli.RunWithRadioAndTimeout(runGetBatteryCharge, fatal),
 }
 
 func init() {

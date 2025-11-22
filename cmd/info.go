@@ -8,12 +8,14 @@ import (
 
 	"github.com/ftl/tetra-pei/com"
 	"github.com/spf13/cobra"
+
+	"github.com/ftl/tetra-cli/pkg/cli"
 )
 
 var infoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Read the radio device information",
-	Run:   runCommandWithRadio(runInfo),
+	Run:   cli.RunWithRadioAndTimeout(runInfo, fatal),
 }
 
 func init() {

@@ -7,6 +7,8 @@ import (
 	"github.com/ftl/tetra-pei/sds"
 	"github.com/ftl/tetra-pei/tetra"
 	"github.com/spf13/cobra"
+
+	"github.com/ftl/tetra-cli/pkg/cli"
 )
 
 var statusFlags = struct {
@@ -15,7 +17,7 @@ var statusFlags = struct {
 var statusCmd = &cobra.Command{
 	Use:   "status <destination ISSI> <hexstatus>",
 	Short: "Send a status message",
-	Run:   runCommandWithRadio(runStatus),
+	Run:   cli.RunWithRadioAndTimeout(runStatus, fatal),
 }
 
 func init() {

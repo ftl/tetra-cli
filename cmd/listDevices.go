@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 
 	"github.com/hedhyw/Go-Serial-Detector/pkg/v1/serialdet"
 	"github.com/spf13/cobra"
@@ -21,7 +20,7 @@ func init() {
 func runListDevices(*cobra.Command, []string) {
 	devices, err := serialdet.List()
 	if err != nil {
-		log.Fatal(err)
+		fatal(err)
 	}
 
 	if len(devices) == 0 {

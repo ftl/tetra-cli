@@ -11,6 +11,8 @@ import (
 	"github.com/ftl/tetra-pei/ctrl"
 	"github.com/ftl/tetra-pei/sds"
 	"github.com/spf13/cobra"
+
+	"github.com/ftl/tetra-cli/pkg/cli"
 )
 
 var listenFlags = struct {
@@ -19,7 +21,7 @@ var listenFlags = struct {
 var listenCmd = &cobra.Command{
 	Use:   "listen",
 	Short: "Listen for incoming text and status messages",
-	Run:   runWithRadio(runListen),
+	Run:   cli.RunWithRadio(runListen, fatal),
 }
 
 func init() {

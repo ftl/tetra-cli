@@ -11,6 +11,8 @@ import (
 	"github.com/ftl/tetra-pei/sds"
 	"github.com/ftl/tetra-pei/tetra"
 	"github.com/spf13/cobra"
+
+	"github.com/ftl/tetra-cli/pkg/cli"
 )
 
 var sendFlags = struct {
@@ -25,7 +27,7 @@ var sendFlags = struct {
 var sendCmd = &cobra.Command{
 	Use:   "send <destination ISSI> <text>",
 	Short: "Send an SDS text message",
-	Run:   runCommandWithRadio(runSend),
+	Run:   cli.RunWithRadioAndTimeout(runSend, fatal),
 }
 
 func init() {

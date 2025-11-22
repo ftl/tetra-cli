@@ -8,6 +8,8 @@ import (
 	"github.com/ftl/tetra-pei/com"
 	"github.com/ftl/tetra-pei/ctrl"
 	"github.com/spf13/cobra"
+
+	"github.com/ftl/tetra-cli/pkg/cli"
 )
 
 var traceSignalFlags = struct {
@@ -20,7 +22,7 @@ const defaultTraceSignalScanInterval = 30 * time.Second
 var traceSignalCmd = &cobra.Command{
 	Use:   "trace-signal",
 	Short: "Trace the signal strength and the GPS position",
-	Run:   runWithRadio(runTraceSignal),
+	Run:   cli.RunWithRadio(runTraceSignal, fatal),
 }
 
 func init() {

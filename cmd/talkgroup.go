@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/ftl/tetra-cli/pkg/cli"
 	"github.com/ftl/tetra-pei/com"
 	"github.com/ftl/tetra-pei/ctrl"
 	"github.com/spf13/cobra"
@@ -16,19 +17,19 @@ var talkgroupFlags = struct {
 var setTalkgroupCmd = &cobra.Command{
 	Use:   "set-talkgroup <TMO|DMO> [<GTSI>]",
 	Short: "Set the operating mode and the talk group",
-	Run:   runCommandWithRadio(runSetTalkgroup),
+	Run:   cli.RunWithRadioAndTimeout(runSetTalkgroup, fatal),
 }
 
 var getTalkgroupCmd = &cobra.Command{
 	Use:   "get-talkgroup",
 	Short: "Get the current operating mode and the current talk group",
-	Run:   runCommandWithRadio(runGetTalkgroup),
+	Run:   cli.RunWithRadioAndTimeout(runGetTalkgroup, fatal),
 }
 
 var getTalkgroupsCmd = &cobra.Command{
 	Use:   "talkgroups",
 	Short: "Get all talk groups for TMO and DMO as CSV list",
-	Run:   runCommandWithRadio(runGetTalkgroups),
+	Run:   cli.RunWithRadioAndTimeout(runGetTalkgroups, fatal),
 }
 
 func init() {

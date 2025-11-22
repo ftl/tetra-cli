@@ -8,12 +8,14 @@ import (
 
 	"github.com/ftl/tetra-pei/com"
 	"github.com/spf13/cobra"
+
+	"github.com/ftl/tetra-cli/pkg/cli"
 )
 
 var routingCmd = &cobra.Command{
 	Use:   "routing",
 	Short: "Read the current message and notification routing settings",
-	Run:   runCommandWithRadio(runRouting),
+	Run:   cli.RunWithRadioAndTimeout(runRouting, fatal),
 }
 
 func init() {
