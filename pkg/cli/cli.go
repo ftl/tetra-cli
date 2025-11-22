@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -9,8 +10,7 @@ import (
 	"time"
 
 	"github.com/ftl/tetra-pei/com"
-	"github.com/hedhyw/Go-Serial-Detector/pkg/v1/serialdet"
-	"github.com/jacobsa/go-serial/serial"
+	"github.com/ftl/tetra-pei/serial"
 	"github.com/spf13/cobra"
 )
 
@@ -62,26 +62,13 @@ func RunWithRadio(run func(context.Context, *com.COM, *cobra.Command, []string),
 			fatalErrorHandler = DefaultFatalErrorHandler
 		}
 
+		rootCtx, interrupted := signal.NotifyContext(context.Background(), os.Interrupt)
+		defer interrupted()
+
 		portName, err := FindRadioPortName()
 		if err != nil {
 			fatalErrorHandler(err)
 		}
-
-		portConfig := serial.OpenOptions{
-			PortName:              portName,
-			BaudRate:              38400,
-			DataBits:              8,
-			StopBits:              1,
-			ParityMode:            serial.PARITY_NONE,
-			RTSCTSFlowControl:     true,
-			MinimumReadSize:       4,
-			InterCharacterTimeout: 100,
-		}
-		device, err := serial.Open(portConfig)
-		if err != nil {
-			fatalErrorHandler(err)
-		}
-		defer device.Close()
 
 		var tracePEIFile *os.File
 		if DefaultTetraFlags.TracePEIFilename != "" {
@@ -92,18 +79,19 @@ func RunWithRadio(run func(context.Context, *com.COM, *cobra.Command, []string),
 			defer tracePEIFile.Close()
 		}
 
-		rootCtx, interrupted := signal.NotifyContext(context.Background(), os.Interrupt)
-		defer interrupted()
-
 		var radio *com.COM
 		if tracePEIFile != nil {
-			radio = com.NewWithTrace(device, tracePEIFile)
+			radio, err = serial.OpenWithTrace(portName, tracePEIFile)
 		} else {
-			radio = com.New(device)
+			radio, err = serial.Open(portName)
 		}
-		err = radio.ClearSyntaxErrors(rootCtx)
 		if err != nil {
 			fatalErrorHandler(fmt.Errorf("cannot connect to radio: %v", err))
+		}
+
+		err = radio.ClearSyntaxErrors(rootCtx)
+		if err != nil {
+			fatalErrorHandler(fmt.Errorf("cannot initialize radio: %v", err))
 		}
 
 		run(rootCtx, radio, cmd, args)
@@ -123,17 +111,12 @@ func FindRadioPortName() (string, error) {
 		return DefaultTetraFlags.Device, nil
 	}
 
-	devices, err := serialdet.List()
+	portName, err := serial.FindRadioPortName()
+	if errors.Is(err, serial.NoPEIFound) {
+		return "", fmt.Errorf("no active PEI interface found, use the --device parameter to provide the serial communication device")
+	}
 	if err != nil {
 		return "", err
 	}
-
-	for _, device := range devices {
-		description := strings.ToLower(device.Description())
-		if strings.Contains(description, "tetra_pei_interface") {
-			return device.Path(), nil
-		}
-	}
-
-	return "", fmt.Errorf("no active PEI interface found, use the --device parameter to provide the serial communication device")
+	return portName, nil
 }

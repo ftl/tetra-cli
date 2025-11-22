@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/hedhyw/Go-Serial-Detector/pkg/v1/serialdet"
+	"github.com/ftl/tetra-pei/serial"
 	"github.com/spf13/cobra"
 )
 
@@ -18,7 +18,7 @@ func init() {
 }
 
 func runListDevices(*cobra.Command, []string) {
-	devices, err := serialdet.List()
+	devices, err := serial.ListDevices()
 	if err != nil {
 		fatal(err)
 	}
@@ -29,6 +29,6 @@ func runListDevices(*cobra.Command, []string) {
 	}
 
 	for _, device := range devices {
-		fmt.Printf("%s: %s\n", device.Description(), device.Path())
+		fmt.Printf("%s: %s\n", device.Description, device.Filename)
 	}
 }
