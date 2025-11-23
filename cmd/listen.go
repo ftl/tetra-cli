@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ftl/tetra-pei/com"
 	"github.com/ftl/tetra-pei/ctrl"
 	"github.com/ftl/tetra-pei/sds"
 	"github.com/spf13/cobra"
 
 	"github.com/ftl/tetra-cli/pkg/cli"
+	"github.com/ftl/tetra-cli/pkg/radio"
 )
 
 var listenFlags = struct {
@@ -21,15 +21,15 @@ var listenFlags = struct {
 var listenCmd = &cobra.Command{
 	Use:   "listen",
 	Short: "Listen for incoming text and status messages",
-	Run:   cli.RunWithRadio(runListen, fatal),
+	Run:   cli.RunWithPEI(runListen, fatal),
 }
 
 func init() {
 	rootCmd.AddCommand(listenCmd)
 }
 
-func runListen(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
-	err := radio.ATs(ctx,
+func runListen(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args []string) {
+	err := pei.ATs(ctx,
 		"ATZ",
 		"ATE0",
 		"AT+CSCS=8859-1",
@@ -62,7 +62,7 @@ func runListen(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []s
 		fmt.Printf("STATUS\nISSI:%s\nSTATUS:%4x\n--\n", m.Source, m.Value)
 	}).WithResponseCallback(func(responses []string) error {
 		for _, response := range responses {
-			_, err := radio.AT(ctx, response)
+			_, err := pei.AT(ctx, response)
 			if err != nil {
 				log.Printf("cannot send response command %s:\n%v", response, err)
 				return err
@@ -82,9 +82,9 @@ func runListen(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []s
 		}
 	}
 
-	radio.AddIndication("+CTSDSR: 12,", 1, decodeMessagePart)
-	radio.AddIndication("+CTSDSR: 13,", 1, decodeMessagePart)
-	radio.AddIndication("+CTXG:", 0, func(lines []string) {
+	pei.AddIndication("+CTSDSR: 12,", 1, decodeMessagePart)
+	pei.AddIndication("+CTSDSR: 13,", 1, decodeMessagePart)
+	pei.AddIndication("+CTXG:", 0, func(lines []string) {
 		parts := strings.Split(lines[0][6:], ",")
 		switch len(parts) {
 		case 4:
@@ -93,13 +93,13 @@ func runListen(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []s
 			fmt.Printf("VOICE RX\nITSI: %s\n--\n", parts[5])
 		}
 	})
-	radio.AddIndication("+CDTXC:", 0, func(lines []string) {
+	pei.AddIndication("+CDTXC:", 0, func(lines []string) {
 		fmt.Printf("TALKGROUP IDLE\n--\n")
 	})
-	radio.AddIndication("+CTCR:", 0, func(lines []string) {
+	pei.AddIndication("+CTCR:", 0, func(lines []string) {
 		fmt.Printf("TALKGROUP INACTIVE\n--\n")
 	})
-	radio.AddIndication("+CTOM: ", 0, func(lines []string) {
+	pei.AddIndication("+CTOM: ", 0, func(lines []string) {
 		aiMode, err := strconv.Atoi(lines[0][7:])
 		if err != nil {
 			return

@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ftl/tetra-pei/com"
 	"github.com/ftl/tetra-pei/ctrl"
 	"github.com/spf13/cobra"
 
 	"github.com/ftl/tetra-cli/pkg/cli"
+	"github.com/ftl/tetra-cli/pkg/radio"
 )
 
 var traceSignalFlags = struct {
@@ -22,7 +22,7 @@ const defaultTraceSignalScanInterval = 30 * time.Second
 var traceSignalCmd = &cobra.Command{
 	Use:   "trace-signal",
 	Short: "Trace the signal strength and the GPS position",
-	Run:   cli.RunWithRadio(runTraceSignal, fatal),
+	Run:   cli.RunWithPEI(runTraceSignal, fatal),
 }
 
 func init() {
@@ -32,8 +32,8 @@ func init() {
 	rootCmd.AddCommand(traceSignalCmd)
 }
 
-func runTraceSignal(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
-	err := radio.ATs(ctx,
+func runTraceSignal(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args []string) {
+	err := pei.ATs(ctx,
 		"ATZ",
 		"ATE0",
 		"AT+CSCS=8859-1",
@@ -42,7 +42,7 @@ func runTraceSignal(ctx context.Context, radio *com.COM, cmd *cobra.Command, arg
 		fatalf("cannot initilize radio: %v", err)
 	}
 
-	scanSignalAndPosition(ctx, radio)
+	scanSignalAndPosition(ctx, pei)
 
 	if traceSignalFlags.scanCount == 1 {
 		return
@@ -61,7 +61,7 @@ func runTraceSignal(ctx context.Context, radio *com.COM, cmd *cobra.Command, arg
 			case <-ctx.Done():
 				return
 			case <-scanTicker.C:
-				scanSignalAndPosition(ctx, radio)
+				scanSignalAndPosition(ctx, pei)
 				scanCount++
 				if traceSignalFlags.scanCount > 0 && scanCount >= traceSignalFlags.scanCount {
 					return
@@ -73,8 +73,8 @@ func runTraceSignal(ctx context.Context, radio *com.COM, cmd *cobra.Command, arg
 	<-closed
 }
 
-func scanSignalAndPosition(ctx context.Context, radio *com.COM) {
-	lat, lon, sats, timestamp, err := ctrl.RequestGPSPosition(ctx, radio)
+func scanSignalAndPosition(ctx context.Context, pei radio.PEI) {
+	lat, lon, sats, timestamp, err := ctrl.RequestGPSPosition(ctx, pei)
 	if err != nil {
 		lat = 0
 		lon = 0
@@ -83,7 +83,7 @@ func scanSignalAndPosition(ctx context.Context, radio *com.COM) {
 	}
 	timeStr := timestamp.Format(time.RFC3339)
 
-	dbm, err := ctrl.RequestSignalStrength(ctx, radio)
+	dbm, err := ctrl.RequestSignalStrength(ctx, pei)
 	if err != nil {
 		dbm = 0
 	}

@@ -6,24 +6,24 @@ import (
 	"log"
 	"strings"
 
-	"github.com/ftl/tetra-pei/com"
 	"github.com/spf13/cobra"
 
 	"github.com/ftl/tetra-cli/pkg/cli"
+	"github.com/ftl/tetra-cli/pkg/radio"
 )
 
 var infoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Read the radio device information",
-	Run:   cli.RunWithRadioAndTimeout(runInfo, fatal),
+	Run:   cli.RunWithPEIAndTimeout(runInfo, fatal),
 }
 
 func init() {
 	rootCmd.AddCommand(infoCmd)
 }
 
-func runInfo(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
-	err := radio.ATs(ctx,
+func runInfo(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args []string) {
+	err := pei.ATs(ctx,
 		"ATZ",
 		"ATE0",
 	)
@@ -31,7 +31,7 @@ func runInfo(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []str
 		fatalf("cannot initialize radio: %v", err)
 	}
 
-	info, err := radio.AT(ctx, "ATI")
+	info, err := pei.AT(ctx, "ATI")
 	if err != nil {
 		log.Printf("cannot read radio device information: %v", err)
 	} else {

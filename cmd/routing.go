@@ -6,24 +6,24 @@ import (
 	"log"
 	"strings"
 
-	"github.com/ftl/tetra-pei/com"
 	"github.com/spf13/cobra"
 
 	"github.com/ftl/tetra-cli/pkg/cli"
+	"github.com/ftl/tetra-cli/pkg/radio"
 )
 
 var routingCmd = &cobra.Command{
 	Use:   "routing",
 	Short: "Read the current message and notification routing settings",
-	Run:   cli.RunWithRadioAndTimeout(runRouting, fatal),
+	Run:   cli.RunWithPEIAndTimeout(runRouting, fatal),
 }
 
 func init() {
 	rootCmd.AddCommand(routingCmd)
 }
 
-func runRouting(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
-	err := radio.ATs(ctx,
+func runRouting(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args []string) {
+	err := pei.ATs(ctx,
 		"ATZ",
 		"ATE0",
 	)
@@ -31,7 +31,7 @@ func runRouting(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []
 		fatalf("cannot initialize radio: %v", err)
 	}
 
-	routing, err := radio.AT(ctx, "AT+CTSP?")
+	routing, err := pei.AT(ctx, "AT+CTSP?")
 	if err != nil {
 		log.Printf("cannot read routing settings: %v", err)
 	} else {

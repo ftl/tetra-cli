@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/signal"
 	"strings"
 	"time"
 
-	"github.com/ftl/tetra-pei/com"
 	"github.com/ftl/tetra-pei/serial"
 	"github.com/spf13/cobra"
+
+	"github.com/ftl/tetra-cli/pkg/radio"
 )
 
 // DefaultTetraFlags defines default flags for TETRA commands:
@@ -42,28 +42,27 @@ func InitDefaultTetraFlags(command *cobra.Command, defaultCommandTimeout time.Du
 	command.PersistentFlags().MarkHidden("trace-pei")
 }
 
-// RunWithRadioAndTimeout returns a cobra command function, that is executed using the radio defined in the "device" flag.
+// RunWithPEIAndTimeout returns a cobra command function, that is executed using the PEI device defined in the "device" flag.
 // Additionally, the timeout duration defined in the "commandTimeout" flag is applied.
 // The fatalErrorHandler is invoked to handle any error that cannot be handled otherwise (e.g. the given device filename is invalid).
-func RunWithRadioAndTimeout(run func(context.Context, *com.COM, *cobra.Command, []string), fatalErrorHandler func(error)) func(*cobra.Command, []string) {
-	return RunWithRadio(func(ctx context.Context, radio *com.COM, cmd *cobra.Command, args []string) {
+func RunWithPEIAndTimeout(run func(context.Context, radio.PEI, *cobra.Command, []string), fatalErrorHandler func(error)) func(*cobra.Command, []string) {
+	return RunWithPEI(func(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args []string) {
 		cmdCtx, cancel := context.WithTimeout(ctx, DefaultTetraFlags.CommandTimeout)
 		defer cancel()
 
-		run(cmdCtx, radio, cmd, args)
+		run(cmdCtx, pei, cmd, args)
 	}, fatalErrorHandler)
 }
 
-// RunWithRadio returns a cobra command function, that is executed using the radio defined in the "device" flag.
+// RunWithPEI returns a cobra command function, that is executed using the PEI device defined in the "device" flag.
 // The fatalErrorHandler is invoked to handle any error that cannot be handled otherwise (e.g. the given device filename is invalid).
-func RunWithRadio(run func(context.Context, *com.COM, *cobra.Command, []string), fatalErrorHandler func(error)) func(*cobra.Command, []string) {
+func RunWithPEI(run func(context.Context, radio.PEI, *cobra.Command, []string), fatalErrorHandler func(error)) func(*cobra.Command, []string) {
 	return func(cmd *cobra.Command, args []string) {
 		if fatalErrorHandler == nil {
 			fatalErrorHandler = DefaultFatalErrorHandler
 		}
 
-		rootCtx, interrupted := signal.NotifyContext(context.Background(), os.Interrupt)
-		defer interrupted()
+		rootCtx := cmd.Context()
 
 		portName, err := FindRadioPortName()
 		if err != nil {
@@ -79,28 +78,28 @@ func RunWithRadio(run func(context.Context, *com.COM, *cobra.Command, []string),
 			defer tracePEIFile.Close()
 		}
 
-		var radio *com.COM
+		var pei radio.PEI
 		if tracePEIFile != nil {
-			radio, err = serial.OpenWithTrace(portName, tracePEIFile)
+			pei, err = serial.OpenWithTrace(portName, tracePEIFile)
 		} else {
-			radio, err = serial.Open(portName)
+			pei, err = serial.Open(portName)
 		}
 		if err != nil {
 			fatalErrorHandler(fmt.Errorf("cannot connect to radio: %v", err))
 		}
 
-		err = radio.ClearSyntaxErrors(rootCtx)
+		err = pei.ClearSyntaxErrors(rootCtx)
 		if err != nil {
 			fatalErrorHandler(fmt.Errorf("cannot initialize radio: %v", err))
 		}
 
-		run(rootCtx, radio, cmd, args)
+		run(rootCtx, pei, cmd, args)
 
 		shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), DefaultTetraFlags.CommandTimeout)
 		defer cancelShutdown()
-		radio.AT(shutdownCtx, "ATZ")
-		radio.Close()
-		radio.WaitUntilClosed(shutdownCtx)
+		pei.AT(shutdownCtx, "ATZ")
+		pei.Close()
+		pei.WaitUntilClosed(shutdownCtx)
 	}
 }
 
