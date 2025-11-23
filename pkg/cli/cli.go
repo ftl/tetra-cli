@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 	"time"
@@ -62,24 +63,22 @@ func RunWithPEI(run func(context.Context, radio.PEI, *cobra.Command, []string), 
 			fatalErrorHandler = DefaultFatalErrorHandler
 		}
 
+		var err error
 		rootCtx := cmd.Context()
+
+		tracePEIFile, err := setupTracePEI()
+		if err != nil {
+			fatalErrorHandler(fmt.Errorf("cannot access PEI trace file: %v", err))
+		}
 
 		portName, err := FindRadioPortName()
 		if err != nil {
 			fatalErrorHandler(err)
 		}
 
-		var tracePEIFile *os.File
-		if DefaultTetraFlags.TracePEIFilename != "" {
-			tracePEIFile, err = os.OpenFile(DefaultTetraFlags.TracePEIFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				fatalErrorHandler(fmt.Errorf("cannot access PEI trace file: %v", err))
-			}
-			defer tracePEIFile.Close()
-		}
-
 		var pei radio.PEI
 		if tracePEIFile != nil {
+			defer tracePEIFile.Close()
 			pei, err = serial.OpenWithTrace(portName, tracePEIFile)
 		} else {
 			pei, err = serial.Open(portName)
@@ -101,6 +100,14 @@ func RunWithPEI(run func(context.Context, radio.PEI, *cobra.Command, []string), 
 		pei.Close()
 		pei.WaitUntilClosed(shutdownCtx)
 	}
+}
+
+func setupTracePEI() (io.WriteCloser, error) {
+	if DefaultTetraFlags.TracePEIFilename == "" {
+		return nil, nil
+	}
+
+	return os.OpenFile(DefaultTetraFlags.TracePEIFilename, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 }
 
 // FindRadioPortName returns the filename for the first TETRA device it can find.
