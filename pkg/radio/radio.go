@@ -11,6 +11,7 @@ type PEI interface {
 	Close()
 	Closed() bool
 	WaitUntilClosed(ctx context.Context)
+	OnDisconnect(callback func())
 	AddIndication(prefix string, trailingLines int, handler func(lines []string)) error
 	ClearSyntaxErrors(ctx context.Context) error
 	Request(ctx context.Context, request string) ([]string, error)
@@ -118,6 +119,10 @@ func (r *Radio) Closed() bool {
 
 func (r *Radio) WaitUntilClosed(ctx context.Context) {
 	r.pei.WaitUntilClosed(ctx)
+}
+
+func (r *Radio) OnDisconnect(callback func()) {
+	r.pei.OnDisconnect(callback)
 }
 
 func (r *Radio) AddIndication(prefix string, trailingLines int, handler func(lines []string)) error {
