@@ -44,6 +44,22 @@ func InitDefaultTetraFlags(command *cobra.Command, defaultCommandTimeout time.Du
 }
 
 // RunWithPEIAndTimeout returns a cobra command function, that is executed using the PEI device defined in the "device" flag.
+// The initializer is used to initialize the radio.
+// The fatalErrorHandler is invoked to handle any error that cannot be handled otherwise (e.g. the given device filename is invalid).
+func RunWithRadio(run func(context.Context, *radio.Radio, *cobra.Command, []string), initializer radio.Initializer, fatalErrorHandler func(error)) func(*cobra.Command, []string) {
+	return RunWithPEI(func(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args []string) {
+		radio, err := radio.Open(ctx, pei, initializer)
+		if err != nil {
+			fatalErrorHandler(err)
+		}
+
+		run(ctx, radio, cmd, args)
+
+		radio.Close()
+	}, fatalErrorHandler)
+}
+
+// RunWithPEIAndTimeout returns a cobra command function, that is executed using the PEI device defined in the "device" flag.
 // Additionally, the timeout duration defined in the "commandTimeout" flag is applied.
 // The fatalErrorHandler is invoked to handle any error that cannot be handled otherwise (e.g. the given device filename is invalid).
 func RunWithPEIAndTimeout(run func(context.Context, radio.PEI, *cobra.Command, []string), fatalErrorHandler func(error)) func(*cobra.Command, []string) {

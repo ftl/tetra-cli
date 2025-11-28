@@ -21,18 +21,16 @@ var listenFlags = struct {
 var listenCmd = &cobra.Command{
 	Use:   "listen",
 	Short: "Listen for incoming text and status messages",
-	Run:   cli.RunWithPEI(runListen, fatal),
+	Run:   cli.RunWithRadio(runListen, initRadio, fatal),
 }
 
 func init() {
 	rootCmd.AddCommand(listenCmd)
 }
 
-func runListen(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args []string) {
+var initRadio radio.InitializerFunc = func(ctx context.Context, pei radio.PEI) error {
+	// activate the signalling
 	err := pei.ATs(ctx,
-		"ATZ",
-		"ATE0",
-		"AT+CSCS=8859-1",
 		"AT+CTSP=2,0,0",   // call signaling
 		"AT+CTSP=2,2,20",  // status
 		"AT+CTSP=1,3,2",   // simple text messaging
@@ -42,9 +40,10 @@ func runListen(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args []st
 		"AT+CTSP=1,3,138", // message with UDH
 	)
 	if err != nil {
-		fatalf("cannot initialize radio: %v", err)
+		return fmt.Errorf("cannot activate signalling: %w", err)
 	}
 
+	// initialize the SDS stack with callbacks for the different message types
 	stack := sds.NewStack().WithMessageCallback(func(m sds.Message) {
 		var opta, sanitizedText, itsi string
 		opta, sanitizedText = sds.SplitLeadingOPTA(m.Text())
@@ -71,6 +70,7 @@ func runListen(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args []st
 		return nil
 	})
 
+	// setup a function to decode SDS message parts
 	var decodeMessagePart = func(lines []string) {
 		if len(lines) == 2 {
 			part, err := sds.ParseIncomingMessage(lines[0], lines[1])
@@ -82,9 +82,18 @@ func runListen(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args []st
 		}
 	}
 
-	pei.AddIndication("+CTSDSR: 12,", 1, decodeMessagePart)
-	pei.AddIndication("+CTSDSR: 13,", 1, decodeMessagePart)
-	pei.AddIndication("+CTXG:", 0, func(lines []string) {
+	// enable the indiciation for SDS message parts and use the decode to process them
+	err = pei.AddIndication("+CTSDSR: 12,", 1, decodeMessagePart)
+	if err != nil {
+		return fmt.Errorf("cannot activate message indication (12): %w", err)
+	}
+	err = pei.AddIndication("+CTSDSR: 13,", 1, decodeMessagePart)
+	if err != nil {
+		return fmt.Errorf("cannot activate message indication (13): %w", err)
+	}
+
+	// enable indications for several voice and talkgroup events
+	err = pei.AddIndication("+CTXG:", 0, func(lines []string) {
 		parts := strings.Split(lines[0][6:], ",")
 		switch len(parts) {
 		case 4:
@@ -93,19 +102,38 @@ func runListen(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args []st
 			fmt.Printf("VOICE RX\nITSI: %s\n--\n", parts[5])
 		}
 	})
-	pei.AddIndication("+CDTXC:", 0, func(lines []string) {
+	if err != nil {
+		return fmt.Errorf("cannot activate voice indication: %w", err)
+	}
+
+	err = pei.AddIndication("+CDTXC:", 0, func(lines []string) {
 		fmt.Printf("TALKGROUP IDLE\n--\n")
 	})
-	pei.AddIndication("+CTCR:", 0, func(lines []string) {
+	if err != nil {
+		return fmt.Errorf("cannot activate talkgroup idle indication: %w", err)
+	}
+
+	err = pei.AddIndication("+CTCR:", 0, func(lines []string) {
 		fmt.Printf("TALKGROUP INACTIVE\n--\n")
 	})
-	pei.AddIndication("+CTOM: ", 0, func(lines []string) {
+	if err != nil {
+		return fmt.Errorf("cannot activate talkgroup inactive indication: %w", err)
+	}
+
+	err = pei.AddIndication("+CTOM: ", 0, func(lines []string) {
 		aiMode, err := strconv.Atoi(lines[0][7:])
 		if err != nil {
 			return
 		}
 		fmt.Printf("AI MODE: %s\n--\n", ctrl.AIMode(aiMode).String())
 	})
+	if err != nil {
+		return fmt.Errorf("cannot activate CTOM indication")
+	}
 
+	return nil
+}
+
+func runListen(ctx context.Context, radio *radio.Radio, cmd *cobra.Command, args []string) {
 	<-ctx.Done()
 }
