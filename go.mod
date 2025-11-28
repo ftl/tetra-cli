@@ -5,7 +5,7 @@ go 1.25.4
 // replace github.com/ftl/tetra-pei => ../tetra-pei
 
 require (
-	github.com/ftl/tetra-pei v1.4.2
+	github.com/ftl/tetra-pei v1.4.3
 	github.com/spf13/cobra v1.9.1
 )
 
