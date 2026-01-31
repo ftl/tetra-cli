@@ -12,12 +12,6 @@ import (
 	"github.com/ftl/tetra-cli/pkg/cli"
 )
 
-var rootFlags = struct {
-	device           string
-	commandTimeout   time.Duration
-	tracePEIFilename string
-}{}
-
 const defaultCommandTimeout = 5 * time.Second
 
 var rootCmd = &cobra.Command{

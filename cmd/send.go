@@ -71,7 +71,6 @@ func runSend(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args []stri
 	err := pei.ATs(ctx,
 		"ATZ",
 		"ATE0",
-		"AT+CSCS=8859-1",
 		sds.SwitchToSDSTL,
 	)
 	if err != nil {

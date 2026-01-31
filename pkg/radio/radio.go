@@ -77,9 +77,8 @@ func (r *Radio) initialize(ctx context.Context, initializer Initializer) error {
 
 	// initialize the PEI
 	err = r.pei.ATs(ctx,
-		"ATZ",
-		"ATE0",
-		"AT+CSCS=8859-1",
+		"ATZ",  // reset to default configuration
+		"ATE0", // turn off echo on the serial line
 	)
 	if err != nil {
 		return err
@@ -110,7 +109,7 @@ func (r *Radio) Close() {
 	// reset the PEI to defaults
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancelShutdown()
-	r.pei.AT(shutdownCtx, "ATZ")
+	r.pei.AT(shutdownCtx, "ATZ") // reset to default configuration
 }
 
 func (r *Radio) Closed() bool {
@@ -134,15 +133,15 @@ func (r *Radio) ClearSyntaxErrors(ctx context.Context) error {
 }
 
 func (r *Radio) Request(ctx context.Context, request string) ([]string, error) {
-	return r.Request(ctx, request)
+	return r.pei.Request(ctx, request)
 }
 
 func (r *Radio) AT(ctx context.Context, request string) ([]string, error) {
-	return r.AT(ctx, request)
+	return r.pei.AT(ctx, request)
 }
 
 func (r *Radio) ATs(ctx context.Context, requests ...string) error {
-	return r.ATs(ctx, requests...)
+	return r.pei.ATs(ctx, requests...)
 }
 
 // RunLoop executeds the given loop function in a separate goroutine while this radio is

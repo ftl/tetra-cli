@@ -36,7 +36,6 @@ func runTraceSignal(ctx context.Context, pei radio.PEI, cmd *cobra.Command, args
 	err := pei.ATs(ctx,
 		"ATZ",
 		"ATE0",
-		"AT+CSCS=8859-1",
 	)
 	if err != nil {
 		fatalf("cannot initilize radio: %v", err)

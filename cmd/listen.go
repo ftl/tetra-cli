@@ -16,6 +16,7 @@ import (
 )
 
 var listenFlags = struct {
+	encoding string
 }{}
 
 var listenCmd = &cobra.Command{
@@ -25,6 +26,8 @@ var listenCmd = &cobra.Command{
 }
 
 func init() {
+	listenCmd.Flags().StringVar(&listenFlags.encoding, "encoding", "", "the text encoding (example: --encoding=8859-1)")
+
 	rootCmd.AddCommand(listenCmd)
 }
 
@@ -41,6 +44,13 @@ var initRadio radio.InitializerFunc = func(ctx context.Context, pei radio.PEI) e
 	)
 	if err != nil {
 		return fmt.Errorf("cannot activate signalling: %w", err)
+	}
+
+	if listenFlags.encoding != "" {
+		err = pei.ATs(ctx, fmt.Sprintf("AT+CSCS=%s", listenFlags.encoding)) // try to set the encoding
+		if err != nil {
+			log.Printf("WARNING: cannot set text encoding %q: %v", listenFlags.encoding, err)
+		}
 	}
 
 	// initialize the SDS stack with callbacks for the different message types
